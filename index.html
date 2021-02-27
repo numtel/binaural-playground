@@ -1,0 +1,132 @@
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binaural Playground</title>
+<style>
+button {padding: 10px; font-size:120%;}
+textarea {display:block; width: 100%; height: 60vh;}
+summary {cursor:pointer;}
+</style>
+</head>
+<body>
+<h1>Binaural Playground</h1>
+<button onclick="play(event)">Play</button>
+<textarea>
+0,446,432
+3000,446,432
+3001,432,446
+6000,432,446
+6001,446,432
+</textarea>
+<details>
+<summary>Help</summary>
+<ul>
+<li>Type sequence of steps in the box.
+  <p>Each line contains 3 whole numbers separated by commas:
+  <ul>
+    <li>timestamp (in milliseconds)
+    <li>left channel frequency (hertz)
+    <li>right channel frequency (hertz)
+  </ul>
+<li>Frequencies shift linearly between steps
+<li>Sequence will repeat until clicking stop
+<li>Share sequences by copying the URL
+<li>When 'Play' is clicked, the page URL is updated with the encoded sequence appended. Bookmark or share these URLs to save the sounds.
+<li>Wear headphones and make sure that they're on with correct left/right
+<li>Binaural guide
+  <p>The difference between left and right channel frequency is the binaural frequency experienced, e.g. 100 Hz left, 103 Hz right = 3 Hz binaural
+  <ul>
+    <li>1-4 Hz: Delta (Deep sleep)
+    <li>4-8 Hz: Theta (Meditation/REM)
+    <li>8-14 Hz: Alpha (Relaxation)
+    <li>14-30 Hz: Beta (Focus/Energy)
+    <li>30-100 Hz: Gamma (Maximum Awareness)
+  </ul>
+  <p>Experiment with which side has the higher frequency
+</ul>
+</details>
+<script>
+function play(event) {
+  const raw = document.querySelector('textarea').value.split('\n');
+  const audioCtx = new AudioContext();
+  const gainNode = audioCtx.createGain();
+  gainNode.connect(audioCtx.destination);
+  const leftNode = audioCtx.createStereoPanner();
+  leftNode.pan.setValueAtTime(-1, audioCtx.currentTime);
+  leftNode.connect(gainNode);
+  const rightNode = audioCtx.createStereoPanner();
+  rightNode.pan.setValueAtTime(1, audioCtx.currentTime);
+  rightNode.connect(gainNode);
+  const leftOscillator = audioCtx.createOscillator();
+  leftOscillator.type = 'sine';
+  leftOscillator.connect(leftNode);
+  const rightOscillator = audioCtx.createOscillator();
+  rightOscillator.type = 'sine';
+  rightOscillator.connect(rightNode);
+  const steps = raw.map(line => {
+    if(line.trim() === '') return;
+    const [time, leftFreq, rightFreq] = line.split(',').map(parseFloat);
+    return {time, leftFreq, rightFreq};
+  }).filter(x=>!!x);
+  location.hash = uint32ArrayToBase64(new Uint32Array(raw.map(line => {
+    if(line.trim() === '') return;
+    return line.split(',').map(x=>parseInt(x, 10));
+  }).filter(x=>!!x).reduce((out, cur) => out.concat(cur), [])));
+  function addSteps() {
+    for(let step of steps) {
+      leftOscillator.frequency.linearRampToValueAtTime(step.leftFreq, audioCtx.currentTime + step.time /1000);
+      rightOscillator.frequency.linearRampToValueAtTime(step.rightFreq, audioCtx.currentTime + step.time /1000);
+    };
+  }
+  addSteps();
+  const repeatInterval = setInterval(addSteps, steps[steps.length - 1].time);
+  event.target.innerHTML = 'Stop';
+  const origHandler = event.target.onclick;
+  event.target.onclick = function() {
+    gainNode.gain.linearRampToValueAtTime(0.00000001, audioCtx.currentTime + 0.1);
+    setTimeout(() => {
+      leftOscillator.stop();
+      rightOscillator.stop();
+    }, 200);
+    event.target.innerHTML = 'Play';
+    event.target.onclick = origHandler;
+    clearInterval(repeatInterval);
+  };
+  leftOscillator.start();
+  rightOscillator.start();
+}
+
+function uint32ArrayToBase64(u32) {
+  return uint8ArrayToBase64(new Uint8Array(u32.buffer));
+}
+
+function base64ToUint32Array(b64) {
+  const in8 = base64ToUint8Array(b64);
+  const buffer = new ArrayBuffer(in8.length);
+  const out8 = new Uint8Array(buffer);
+  for(let i = 0; i<in8.length; i++) out8[i] = in8[i];
+  return new Uint32Array(buffer);
+}
+
+function uint8ArrayToBase64(u8) {
+  return btoa(String.fromCharCode.apply(null, u8));
+}
+
+function base64ToUint8Array(str) {
+  return atob(str).split('').map(function (c) { return c.charCodeAt(0); });
+}
+
+function readHash() {
+  if(location.hash) {
+    const sequence = base64ToUint32Array(location.hash.slice(1));
+    let out = '';
+    for(let i = 0; i<sequence.length; i+=3) out += sequence.slice(i,i+3).join(',') + '\n';
+    document.querySelector('textarea').value = out;
+  }
+}
+
+window.onhashchange = readHash;
+readHash();
+
+</script>
