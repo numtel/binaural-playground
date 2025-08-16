@@ -4,48 +4,253 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Binaural Playground</title>
 <style>
-button {padding: 10px; font-size:120%;}
-textarea {display:block; width: 100%; height: 60vh;}
-summary {cursor:pointer;}
+  /* ---------- Theme tokens ---------- */
+  :root{
+    --bg: #0b0b10;
+    --card: #11121a;
+    --muted: #c8c9d1;
+    --text: #e9eaf1;
+    --accent: #6ea8fe;
+    --accent-2: #9d7bff;
+    --error: #ff6b6b;
+    --ring: color-mix(in oklab, var(--accent), white 25%);
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --muted: #3a3e49;
+      --text: #151824;
+      --accent: #2f6dff;
+      --accent-2: #7b49ff;
+      --ring: color-mix(in oklab, var(--accent), black 10%);
+      --shadow: 0 8px 24px rgba(0,0,0,.08);
+    }
+  }
+
+  /* ---------- Page layout ---------- */
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font:400 16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    color:var(--text);
+    background:radial-gradient(1200px 800px at 10% -10%, color-mix(in oklab, var(--accent), transparent 92%), transparent),
+               radial-gradient(1000px 700px at 110% 10%, color-mix(in oklab, var(--accent-2), transparent 92%), transparent),
+               var(--bg);
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  .container{
+    max-width: 900px;
+    margin: clamp(16px, 3vw, 32px) auto;
+    padding: clamp(12px, 2.5vw, 20px);
+  }
+
+  .card{
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: clamp(16px, 3vw, 28px);
+    border: 1px solid color-mix(in oklab, var(--text), transparent 90%);
+  }
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    gap: 12px; margin-bottom: 18px;
+  }
+  header h1{
+    margin:0; font-size: clamp(18px, 2.4vw, 26px);
+    letter-spacing:.2px;
+  }
+  header .sub{
+    color: var(--muted); font-size: .95rem;
+  }
+
+  /* ---------- Controls ---------- */
+  .controls{
+    display:grid; gap:14px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 720px){
+    .controls{
+      grid-template-columns: 1fr 260px;
+      align-items:start;
+    }
+  }
+
+  textarea{
+    width:100%;
+    min-height: 160px;
+    resize: vertical;
+    padding: 12px 14px;
+    border-radius: calc(var(--radius) - 4px);
+    border: 1px solid color-mix(in oklab, var(--text), transparent 86%);
+    background: transparent;
+    color: var(--text);
+    outline: none;
+    box-shadow: inset 0 0 0 1px transparent, 0 0 0 0 transparent;
+    transition: box-shadow .15s ease, border-color .15s ease, background .2s ease;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    line-height:1.6;
+  }
+  textarea:focus{
+    border-color: var(--ring);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring), transparent 75%);
+  }
+
+  .side{
+    display:flex; flex-direction:column; gap:12px;
+    position:sticky; top:12px;
+  }
+
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+
+  button, .btn{
+    -webkit-tap-highlight-color: transparent;
+    appearance:none; border:0; cursor:pointer;
+    padding: 12px 16px;
+    border-radius: calc(var(--radius) - 6px);
+    font-weight:600;
+    letter-spacing:.2px;
+    background: linear-gradient(180deg, var(--accent), color-mix(in oklab, var(--accent), black 8%));
+    color:white;
+    box-shadow: 0 6px 16px color-mix(in oklab, var(--accent), black 70%);
+    transition: transform .06s ease, filter .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  button:hover{ filter: brightness(1.04) }
+  button:active{ transform: translateY(1px) }
+  button:focus-visible{
+    outline: none;
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring), transparent 70%),
+                0 6px 16px color-mix(in oklab, var(--accent), black 70%);
+  }
+
+  .btn-secondary{
+    background: linear-gradient(180deg, color-mix(in oklab, var(--card), white 6%), color-mix(in oklab, var(--card), black 4%));
+    color: var(--text);
+    border: 1px solid color-mix(in oklab, var(--text), transparent 86%);
+    box-shadow:none;
+  }
+  .btn-danger{
+    background: linear-gradient(180deg, var(--error), color-mix(in oklab, var(--error), black 10%));
+    box-shadow: 0 6px 16px color-mix(in oklab, var(--error), black 70%);
+  }
+
+  label{
+    display:block; font-weight:600; margin-bottom:6px; letter-spacing:.2px;
+  }
+  .hint{ color: var(--muted); font-size:.92rem }
+
+  input[type="range"],
+  input[type="number"],
+  select{
+    width:100%;
+    padding: 10px 12px;
+    border-radius: calc(var(--radius) - 6px);
+    border: 1px solid color-mix(in oklab, var(--text), transparent 86%);
+    background: transparent;
+    color: var(--text);
+    outline:none;
+    transition: box-shadow .15s ease, border-color .15s ease;
+  }
+  input[type="number"]:focus,
+  select:focus{
+    border-color: var(--ring);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring), transparent 75%);
+  }
+
+  /* ---------- Footer ---------- */
+  .footer{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    margin-top: 14px; color: var(--muted); font-size:.95rem;
+  }
+  .footer a{ color: var(--accent); text-decoration: none }
+  .footer a:hover{ text-decoration: underline }
+
+  /* ---------- Mobile niceties ---------- */
+  @media (max-width: 719px){
+    .footer{ flex-direction:column; align-items:flex-start }
+    button, .btn{ width:100% }
+    .side{ position:static }
+  }
+
+  /* ---------- Safe-area for notches ---------- */
+  .container{ padding-left: max(8px, env(safe-area-inset-left)); padding-right:max(8px, env(safe-area-inset-right)) }
+  body{ padding-bottom: env(safe-area-inset-bottom) }
+
+  /* ---------- Reduced motion ---------- */
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important }
+  }
+
+  summary { cursor: pointer; }
 </style>
+
 </head>
 <body>
-<h1>Binaural Playground</h1>
-<button onclick="play(event)">Play</button>
-<textarea>
-0,446,432
-3000,446,432
-3001,432,446
-6000,432,446
-6001,446,432
-</textarea>
-<details>
-<summary>Help</summary>
-<ul>
-<li>Type sequence of steps in the box.
-  <p>Each line contains 3 whole numbers separated by commas:
-  <ul>
-    <li>timestamp (in milliseconds)
-    <li>left channel frequency (hertz)
-    <li>right channel frequency (hertz)
-  </ul>
-<li>Frequencies shift linearly between steps
-<li>Sequence will repeat until clicking stop
-<li>Share sequences by copying the URL
-<li>When 'Play' is clicked, the page URL is updated with the encoded sequence appended. Bookmark or share these URLs to save the sounds.
-<li>Wear headphones and make sure that they're on with correct left/right
-<li>Binaural guide
-  <p>The difference between left and right channel frequency is the binaural frequency experienced, e.g. 100 Hz left, 103 Hz right = 3 Hz binaural
-  <ul>
-    <li>1-4 Hz: Delta (Deep sleep)
-    <li>4-8 Hz: Theta (Meditation/REM)
-    <li>8-14 Hz: Alpha (Relaxation)
-    <li>14-30 Hz: Beta (Focus/Energy)
-    <li>30-100 Hz: Gamma (Maximum Awareness)
-  </ul>
-  <p>Experiment with which side has the higher frequency
-</ul>
-</details>
+  <div class="container">
+    <div class="card">
+      <header>
+        <h1>Binaural Playground</h1>
+        <div class="sub">For your exploration</div>
+      </header>
+
+      <div class="controls">
+        <textarea placeholder="0,40,48
+5000,240,248">0,40,48
+5000,240,248</textarea>
+
+        <div class="side">
+          <button onclick="play(event)">Play</button>
+          <div class="row">
+            <button class="btn-secondary" onclick="navigator.clipboard && navigator.clipboard.writeText(location.href)">Copy URL</button>
+          </div>
+          <div class="hint">Headphones recommended. Ensure left/right channels are correct.</div>
+        </div>
+      </div>
+
+      <details style="margin-top:16px">
+        <summary>Help</summary>
+        <ul>
+          <li>Type sequence of steps in the box.</li>
+          <p>Each line contains 3 whole numbers separated by commas:</p>
+          <ul>
+            <li>timestamp (in milliseconds)</li>
+            <li>left channel frequency (hertz)</li>
+            <li>right channel frequency (hertz)</li>
+          </ul>
+          <li>Frequencies shift linearly between steps</li>
+          <li>Sequence will repeat until clicking stop</li>
+          <li>Share sequences by copying the URL</li>
+          <li>When 'Play' is clicked, the page URL is updated with the encoded sequence appended. Bookmark or share these URLs to save the sounds.</li>
+          <li>Wear headphones and make sure that they're on with correct left/right</li>
+        </ul>
+      </details>
+
+      <details style="margin-top:8px">
+        <summary>Binaural frequency guide</summary>
+        <p>The difference between left and right channel frequency is the binaural frequency experienced, e.g. 100 Hz left, 103 Hz right = 3 Hz binaural</p>
+        <ul>
+          <li>1-4 Hz: Delta (Deep sleep)</li>
+          <li>4-8 Hz: Theta (Meditation/REM)</li>
+          <li>8-14 Hz: Alpha (Relaxation)</li>
+          <li>14-30 Hz: Beta (Focus/Energy)</li>
+          <li>30-100 Hz: Gamma (Maximum Awareness)</li>
+        </ul>
+        <p>Experiment with which side has the higher frequency</p>
+      </details>
+
+      <div class="footer">
+        <span>Inspired by Hemi-Sync</span>
+        <a href="https://github.com/numtel/binaural-playground" target="_blank" rel="noopener">View on Github</a>
+      </div>
+    </div>
+  </div>
 <script>
 function play(event) {
   const raw = document.querySelector('textarea').value.split('\n');
