@@ -49,52 +49,93 @@ summary {cursor:pointer;}
 <script>
 function play(event) {
   const raw = document.querySelector('textarea').value.split('\n');
-  const audioCtx = new AudioContext();
+
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const gainNode = audioCtx.createGain();
   gainNode.connect(audioCtx.destination);
+
   const leftNode = audioCtx.createStereoPanner();
   leftNode.pan.setValueAtTime(-1, audioCtx.currentTime);
   leftNode.connect(gainNode);
+
   const rightNode = audioCtx.createStereoPanner();
   rightNode.pan.setValueAtTime(1, audioCtx.currentTime);
   rightNode.connect(gainNode);
-  const leftOscillator = audioCtx.createOscillator();
-  leftOscillator.type = 'sine';
-  leftOscillator.connect(leftNode);
-  const rightOscillator = audioCtx.createOscillator();
-  rightOscillator.type = 'sine';
-  rightOscillator.connect(rightNode);
-  const steps = raw.map(line => {
-    if(line.trim() === '') return;
-    const [time, leftFreq, rightFreq] = line.split(',').map(parseFloat);
-    return {time, leftFreq, rightFreq};
-  }).filter(x=>!!x);
-  location.hash = uint32ArrayToBase64(new Uint32Array(raw.map(line => {
-    if(line.trim() === '') return;
-    return line.split(',').map(x=>parseInt(x, 10));
-  }).filter(x=>!!x).reduce((out, cur) => out.concat(cur), [])));
-  function addSteps() {
-    for(let step of steps) {
-      leftOscillator.frequency.linearRampToValueAtTime(step.leftFreq, audioCtx.currentTime + step.time /1000);
-      rightOscillator.frequency.linearRampToValueAtTime(step.rightFreq, audioCtx.currentTime + step.time /1000);
-    };
+
+  const leftOsc = audioCtx.createOscillator();
+  leftOsc.type = 'sine';
+  leftOsc.connect(leftNode);
+
+  const rightOsc = audioCtx.createOscillator();
+  rightOsc.type = 'sine';
+  rightOsc.connect(rightNode);
+
+  // Parse steps (ms, Hz, Hz)
+  const steps = raw
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const [time, leftFreq, rightFreq] = line.split(',').map(Number);
+      return { time, leftFreq, rightFreq };
+    })
+    .sort((a,b) => a.time - b.time);
+
+  // keep the URL share feature
+  location.hash = uint32ArrayToBase64(new Uint32Array(
+    raw.filter(x => x.trim() !== '')
+       .map(line => line.split(',').map(x => parseInt(x, 10)))
+       .reduce((out, cur) => out.concat(cur), [])
+  ));
+
+  const loopDurSec = steps[steps.length - 1].time / 1000;
+  const startTime = audioCtx.currentTime + 0.05; // small buffer to start clean
+  let nextLoopIndex = 0;
+
+  function scheduleLoop(loopIndex) {
+    const base = startTime + loopIndex * loopDurSec;
+
+    // Anchor first point to avoid implicit ramps from previous automation
+    leftOsc.frequency.setValueAtTime(steps[0].leftFreq,  base + steps[0].time / 1000);
+    rightOsc.frequency.setValueAtTime(steps[0].rightFreq, base + steps[0].time / 1000);
+
+    for (let i = 1; i < steps.length; i++) {
+      const s = steps[i];
+      leftOsc.frequency.linearRampToValueAtTime(s.leftFreq,  base + s.time / 1000);
+      rightOsc.frequency.linearRampToValueAtTime(s.rightFreq, base + s.time / 1000);
+    }
   }
-  addSteps();
-  const repeatInterval = setInterval(addSteps, steps[steps.length - 1].time);
-  event.target.innerHTML = 'Stop';
+
+  // Prime a couple of loops so we’re always ahead on the audio timeline
+  scheduleLoop(nextLoopIndex++);
+  scheduleLoop(nextLoopIndex++);
+
+  // Short, frequent scheduler keeps us ahead without drift
+  const LOOKAHEAD_SEC = 0.5;
+  const scheduler = setInterval(() => {
+    while (startTime + nextLoopIndex * loopDurSec < audioCtx.currentTime + LOOKAHEAD_SEC) {
+      scheduleLoop(nextLoopIndex++);
+    }
+  }, 100);
+
+  // UI + teardown
+  event.target.textContent = 'Stop';
   const origHandler = event.target.onclick;
-  event.target.onclick = function() {
+
+  event.target.onclick = function () {
+    // fade out, cancel future automation, then stop
     gainNode.gain.linearRampToValueAtTime(0.00000001, audioCtx.currentTime + 0.1);
-    setTimeout(() => {
-      leftOscillator.stop();
-      rightOscillator.stop();
-    }, 200);
-    event.target.innerHTML = 'Play';
+    leftOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
+    rightOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
+
+    setTimeout(() => { leftOsc.stop(); rightOsc.stop(); }, 200);
+    clearInterval(scheduler);
+
+    event.target.textContent = 'Play';
     event.target.onclick = origHandler;
-    clearInterval(repeatInterval);
   };
-  leftOscillator.start();
-  rightOscillator.start();
+
+  leftOsc.start(startTime);
+  rightOsc.start(startTime);
 }
 
 function uint32ArrayToBase64(u32) {
