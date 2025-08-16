@@ -292,21 +292,59 @@ function play(event) {
        .reduce((out, cur) => out.concat(cur), [])
   ));
 
-  const loopDurSec = steps[steps.length - 1].time / 1000;
   const startTime = audioCtx.currentTime + 0.05; // small buffer to start clean
+
+  // ---- NEW: handle constant / zero-length sequences (e.g., "0,220,260") ----
+  const totalDurSec =
+    steps.length > 0 ? (steps[steps.length - 1].time - steps[0].time) / 1000 : 0;
+
+  // UI + teardown setup (shared)
+  event.target.textContent = 'Stop';
+  const origHandler = event.target.onclick;
+
+  function stopAll(schedulerId = null) {
+    // fade out, cancel future automation, then stop
+    gainNode.gain.linearRampToValueAtTime(0.00000001, audioCtx.currentTime + 0.1);
+    leftOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
+    rightOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
+    if (schedulerId) clearInterval(schedulerId);
+    setTimeout(() => { leftOsc.stop(); rightOsc.stop(); }, 200);
+
+    event.target.textContent = 'Play';
+    event.target.onclick = origHandler;
+  }
+
+  if (totalDurSec <= 0) {
+    // Constant tone: set and hold frequencies; no scheduler, no looping
+    const { leftFreq, rightFreq } = steps[0] || { leftFreq: 0, rightFreq: 0 };
+    leftOsc.frequency.setValueAtTime(leftFreq, startTime);
+    rightOsc.frequency.setValueAtTime(rightFreq, startTime);
+
+    event.target.onclick = () => stopAll(null);
+
+    leftOsc.start(startTime);
+    rightOsc.start(startTime);
+    return; // done
+  }
+  // ---- END constant / zero-length handling ----
+
+  // Looped sequence (duration > 0): schedule with drift-free lookahead
+  const loopDurSec = totalDurSec;
   let nextLoopIndex = 0;
 
   function scheduleLoop(loopIndex) {
     const base = startTime + loopIndex * loopDurSec;
 
-    // Anchor first point to avoid implicit ramps from previous automation
-    leftOsc.frequency.setValueAtTime(steps[0].leftFreq,  base + steps[0].time / 1000);
-    rightOsc.frequency.setValueAtTime(steps[0].rightFreq, base + steps[0].time / 1000);
+    // Anchor first point
+    leftOsc.frequency.setValueAtTime(steps[0].leftFreq,  base + (steps[0].time - steps[0].time) / 1000);
+    rightOsc.frequency.setValueAtTime(steps[0].rightFreq, base + (steps[0].time - steps[0].time) / 1000);
 
     for (let i = 1; i < steps.length; i++) {
       const s = steps[i];
-      leftOsc.frequency.linearRampToValueAtTime(s.leftFreq,  base + s.time / 1000);
-      rightOsc.frequency.linearRampToValueAtTime(s.rightFreq, base + s.time / 1000);
+      // subtract steps[0].time so we’re relative to the loop start, even if the first step isn’t 0
+      const t = (s.time - steps[0].time) / 1000;
+      leftOsc.frequency.linearRampToValueAtTime(s.leftFreq,  base + t);
+      rightOsc.frequency.linearRampToValueAtTime(s.rightFreq, base + t);
     }
   }
 
@@ -314,30 +352,15 @@ function play(event) {
   scheduleLoop(nextLoopIndex++);
   scheduleLoop(nextLoopIndex++);
 
-  // Short, frequent scheduler keeps us ahead without drift
   const LOOKAHEAD_SEC = 0.5;
   const scheduler = setInterval(() => {
+    // keep scheduling loops just ahead of the playhead
     while (startTime + nextLoopIndex * loopDurSec < audioCtx.currentTime + LOOKAHEAD_SEC) {
       scheduleLoop(nextLoopIndex++);
     }
   }, 100);
 
-  // UI + teardown
-  event.target.textContent = 'Stop';
-  const origHandler = event.target.onclick;
-
-  event.target.onclick = function () {
-    // fade out, cancel future automation, then stop
-    gainNode.gain.linearRampToValueAtTime(0.00000001, audioCtx.currentTime + 0.1);
-    leftOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
-    rightOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
-
-    setTimeout(() => { leftOsc.stop(); rightOsc.stop(); }, 200);
-    clearInterval(scheduler);
-
-    event.target.textContent = 'Play';
-    event.target.onclick = origHandler;
-  };
+  event.target.onclick = () => stopAll(scheduler);
 
   leftOsc.start(startTime);
   rightOsc.start(startTime);
