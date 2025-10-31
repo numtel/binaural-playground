@@ -2,6 +2,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f172a">
 <title>Binaural Playground</title>
 <style>
   /* ---------- Theme tokens ---------- */
@@ -190,7 +192,13 @@
 
   summary { cursor: pointer; }
 </style>
-
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js");
+  });
+}
+</script>
 </head>
 <body>
   <div class="container">
@@ -210,6 +218,16 @@
           <div class="row">
             <button class="btn-secondary" onclick="navigator.clipboard && navigator.clipboard.writeText(location.href)">Copy URL</button>
           </div>
+          <input id="songFile" type="file" accept="audio/*">
+          <label>
+            Song Volume
+            <input id="songVol" type="range" min="0" max="1" step="0.01" value="0.9">
+          </label>
+          <label>
+            Beat Volume
+            <input id="beatVol" type="range" min="0" max="1" step="0.01" value="0.2">
+          </label>
+          <button id="playSongBtn">Play Song (with binaural overlay)</button>
           <div class="hint">Headphones recommended. Ensure left/right channels are correct.</div>
         </div>
       </div>
@@ -399,3 +417,177 @@ window.onhashchange = readHash;
 readHash();
 
 </script>
+<script>
+(() => {
+  // Reuse a single AudioContext so song + oscillators share a clock
+  let audioCtx = null;
+
+  // Small utility: ensure we have an AudioContext
+  function getCtx() {
+    if (audioCtx && audioCtx.state !== 'closed') return audioCtx;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  // Build the binaural beat graph (left/right oscillators -> panners -> beatGain)
+  function createBeatGraph(ctx, beatGain) {
+    const leftPan = ctx.createStereoPanner();
+    leftPan.pan.value = -1;
+    const rightPan = ctx.createStereoPanner();
+    rightPan.pan.value = 1;
+
+    const leftOsc = ctx.createOscillator();
+    leftOsc.type = 'sine';
+    leftOsc.connect(leftPan);
+    leftPan.connect(beatGain);
+
+    const rightOsc = ctx.createOscillator();
+    rightOsc.type = 'sine';
+    rightOsc.connect(rightPan);
+    rightPan.connect(beatGain);
+
+    return { leftOsc, rightOsc };
+  }
+
+  // Parse your textarea steps (ms,Hz,Hz) – same format you already use
+  function parseSteps() {
+    const raw = document.querySelector('textarea').value.split('\n');
+    const steps = raw
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        const [time, leftFreq, rightFreq] = line.split(',').map(Number);
+        return { time, leftFreq, rightFreq };
+      })
+      .sort((a,b) => a.time - b.time);
+    return steps;
+  }
+
+  // Schedule the beat oscillators using your drift-free approach
+  function scheduleBeats(ctx, leftOsc, rightOsc, steps, startTime) {
+    const firstT = steps[0].time;
+    const totalDurSec = (steps[steps.length - 1].time - firstT) / 1000;
+
+    if (totalDurSec <= 0) {
+      // Constant tone
+      leftOsc.frequency.setValueAtTime(steps[0].leftFreq, startTime);
+      rightOsc.frequency.setValueAtTime(steps[0].rightFreq, startTime);
+      return { stopScheduler: () => {} };
+    }
+
+    function scheduleLoop(loopIndex) {
+      const base = startTime + loopIndex * totalDurSec;
+      // anchor
+      leftOsc.frequency.setValueAtTime(steps[0].leftFreq,  base);
+      rightOsc.frequency.setValueAtTime(steps[0].rightFreq, base);
+      for (let i = 1; i < steps.length; i++) {
+        const t = (steps[i].time - firstT) / 1000;
+        leftOsc.frequency.linearRampToValueAtTime(steps[i].leftFreq,  base + t);
+        rightOsc.frequency.linearRampToValueAtTime(steps[i].rightFreq, base + t);
+      }
+    }
+
+    let nextLoopIndex = 0;
+    const LOOKAHEAD_SEC = 0.5;
+    // prime
+    scheduleLoop(nextLoopIndex++);
+    scheduleLoop(nextLoopIndex++);
+
+    const scheduler = setInterval(() => {
+      while (startTime + nextLoopIndex * totalDurSec < ctx.currentTime + LOOKAHEAD_SEC) {
+        scheduleLoop(nextLoopIndex++);
+      }
+    }, 100);
+
+    return { stopScheduler: () => clearInterval(scheduler) };
+  }
+
+  // Main: play song and overlay beats
+  async function playSongWithBeat() {
+    const fileEl = document.getElementById('songFile');
+    const songVolEl = document.getElementById('songVol');
+    const beatVolEl = document.getElementById('beatVol');
+    const playBtn = document.getElementById('playSongBtn');
+
+    if (!fileEl.files || !fileEl.files[0]) {
+      alert('Choose an audio file first.');
+      return;
+    }
+
+    const ctx = getCtx();
+    const startTime = ctx.currentTime + 0.1;
+
+    // Master output
+    const masterGain = ctx.createGain();
+    masterGain.connect(ctx.destination);
+
+    // Song chain
+    const songGain = ctx.createGain();
+    songGain.gain.value = parseFloat(songVolEl.value);
+    songGain.connect(masterGain);
+
+    // Beat chain
+    const beatGain = ctx.createGain();
+    beatGain.gain.value = parseFloat(beatVolEl.value);
+    beatGain.connect(masterGain);
+
+    // Decode file
+    const arrayBuf = await fileEl.files[0].arrayBuffer();
+    const audioBuf = await ctx.decodeAudioData(arrayBuf);
+
+    // Play the song as-is (stereo preserved)
+    const songSrc = ctx.createBufferSource();
+    songSrc.buffer = audioBuf;
+    songSrc.connect(songGain);
+
+    // Create beat oscillators
+    const { leftOsc, rightOsc } = createBeatGraph(ctx, beatGain);
+
+    // Parse steps from your textarea and schedule
+    const steps = parseSteps();
+    const { stopScheduler } = scheduleBeats(ctx, leftOsc, rightOsc, steps, startTime);
+
+    // React to slider changes live
+    const onSongVol = () => (songGain.gain.value = parseFloat(songVolEl.value));
+    const onBeatVol = () => (beatGain.gain.value = parseFloat(beatVolEl.value));
+    songVolEl.addEventListener('input', onSongVol);
+    beatVolEl.addEventListener('input', onBeatVol);
+
+    // Start everything
+    songSrc.start(startTime);
+    leftOsc.start(startTime);
+    rightOsc.start(startTime);
+
+    // Toggle UI to Stop and wire teardown
+    playBtn.textContent = 'Stop';
+    const stop = () => {
+      // fade out fast
+      masterGain.gain.linearRampToValueAtTime(0.000001, ctx.currentTime + 0.15);
+
+      // cancel beat automation and stop oscillators
+      leftOsc.frequency.cancelScheduledValues(ctx.currentTime);
+      rightOsc.frequency.cancelScheduledValues(ctx.currentTime);
+
+      try { songSrc.stop(); } catch {}
+      try { leftOsc.stop(); } catch {}
+      try { rightOsc.stop(); } catch {}
+
+      stopScheduler();
+      songVolEl.removeEventListener('input', onSongVol);
+      beatVolEl.removeEventListener('input', onBeatVol);
+
+      playBtn.textContent = 'Play Song (with binaural overlay)';
+      playBtn.onclick = playSongWithBeat;
+    };
+    playBtn.onclick = stop;
+
+    // When song ends naturally, stop everything
+    songSrc.onended = () => stop();
+  }
+
+  // Hook the button
+  const btn = document.getElementById('playSongBtn');
+  if (btn) btn.onclick = playSongWithBeat;
+})();
+</script>
+
