@@ -261,7 +261,11 @@ if ("serviceWorker" in navigator) {
   </div>
 <script>
 function play(event) {
-  const raw = document.querySelector('textarea').value.split('\n');
+  const textareaElement = document.querySelector('textarea');
+  const raw = textareaElement.value.split('\n');
+
+  // ---- PERSISTENCE: Save sequence to localStorage ----
+  localStorage.setItem('binaural_playground_sequence', textareaElement.value);
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const gainNode = audioCtx.createGain();
@@ -404,6 +408,14 @@ function readHash() {
 }
 
 window.onhashchange = readHash;
-readHash();
+// ---- PERSISTENCE: Check conditions on page load ----
+if (location.hash) {
+  readHash();
+} else {
+  const savedSequence = localStorage.getItem('binaural_playground_sequence');
+  if (savedSequence) {
+    document.querySelector('textarea').value = savedSequence;
+  }
+}
 
 </script>
