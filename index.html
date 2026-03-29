@@ -166,6 +166,23 @@
     box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring), transparent 75%);
   }
 
+  /* Toggle Styling */
+  .toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+    cursor: pointer;
+  }
+  .toggle-container input {
+    width: auto;
+    cursor: pointer;
+  }
+  .toggle-container label {
+    margin-bottom: 0;
+    cursor: pointer;
+  }
+
   /* ---------- Footer ---------- */
   .footer{
     display:flex; justify-content:space-between; align-items:center; gap:10px;
@@ -215,6 +232,10 @@ if ("serviceWorker" in navigator) {
 
         <div class="side">
           <button onclick="play(event)">Play</button>
+          <div class="toggle-container">
+            <input type="checkbox" id="loop-toggle" checked>
+            <label for="loop-toggle">Loop sequence</label>
+          </div>
           <div class="row">
             <button class="btn-secondary" onclick="navigator.clipboard && navigator.clipboard.writeText(location.href)">Copy URL</button>
           </div>
@@ -263,8 +284,8 @@ if ("serviceWorker" in navigator) {
 function play(event) {
   const textareaElement = document.querySelector('textarea');
   const raw = textareaElement.value.split('\n');
+  const shouldLoop = document.getElementById('loop-toggle').checked;
 
-  // ---- PERSISTENCE: Save sequence to localStorage ----
   localStorage.setItem('binaural_playground_sequence', textareaElement.value);
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -287,7 +308,6 @@ function play(event) {
   rightOsc.type = 'sine';
   rightOsc.connect(rightNode);
 
-  // Parse steps (ms, Hz, Hz)
   const steps = raw
     .map(line => line.trim())
     .filter(Boolean)
@@ -297,82 +317,67 @@ function play(event) {
     })
     .sort((a,b) => a.time - b.time);
 
-  // keep the URL share feature
+  if (steps.length === 0) return;
+
   location.hash = uint32ArrayToBase64(new Uint32Array(
     raw.filter(x => x.trim() !== '')
        .map(line => line.split(',').map(x => parseInt(x, 10)))
        .reduce((out, cur) => out.concat(cur), [])
   ));
 
-  const startTime = audioCtx.currentTime + 0.05; // small buffer to start clean
+  const startTime = audioCtx.currentTime + 0.05;
+  const totalDurSec = (steps[steps.length - 1].time - steps[0].time) / 1000;
 
-  // ---- NEW: handle constant / zero-length sequences (e.g., "0,220,260") ----
-  const totalDurSec =
-    steps.length > 0 ? (steps[steps.length - 1].time - steps[0].time) / 1000 : 0;
-
-  // UI + teardown setup (shared)
   event.target.textContent = 'Stop';
   const origHandler = event.target.onclick;
 
   function stopAll(schedulerId = null) {
-    // fade out, cancel future automation, then stop
     gainNode.gain.linearRampToValueAtTime(0.00000001, audioCtx.currentTime + 0.1);
     leftOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
     rightOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
     if (schedulerId) clearInterval(schedulerId);
-    setTimeout(() => { leftOsc.stop(); rightOsc.stop(); }, 200);
+    setTimeout(() => {
+      try { leftOsc.stop(); rightOsc.stop(); } catch(e) {}
+    }, 200);
 
     event.target.textContent = 'Play';
     event.target.onclick = origHandler;
   }
 
-  if (totalDurSec <= 0) {
-    // Constant tone: set and hold frequencies; no scheduler, no looping
-    const { leftFreq, rightFreq } = steps[0] || { leftFreq: 0, rightFreq: 0 };
-    leftOsc.frequency.setValueAtTime(leftFreq, startTime);
-    rightOsc.frequency.setValueAtTime(rightFreq, startTime);
+  function scheduleSequence(loopIndex) {
+    const base = startTime + loopIndex * totalDurSec;
 
-    event.target.onclick = () => stopAll(null);
-
-    leftOsc.start(startTime);
-    rightOsc.start(startTime);
-    return; // done
-  }
-  // ---- END constant / zero-length handling ----
-
-  // Looped sequence (duration > 0): schedule with drift-free lookahead
-  const loopDurSec = totalDurSec;
-  let nextLoopIndex = 0;
-
-  function scheduleLoop(loopIndex) {
-    const base = startTime + loopIndex * loopDurSec;
-
-    // Anchor first point
-    leftOsc.frequency.setValueAtTime(steps[0].leftFreq,  base + (steps[0].time - steps[0].time) / 1000);
-    rightOsc.frequency.setValueAtTime(steps[0].rightFreq, base + (steps[0].time - steps[0].time) / 1000);
+    // Set initial frequencies immediately at the start of the sequence
+    leftOsc.frequency.setValueAtTime(steps[0].leftFreq, base);
+    rightOsc.frequency.setValueAtTime(steps[0].rightFreq, base);
 
     for (let i = 1; i < steps.length; i++) {
       const s = steps[i];
-      // subtract steps[0].time so we’re relative to the loop start, even if the first step isn’t 0
       const t = (s.time - steps[0].time) / 1000;
-      leftOsc.frequency.linearRampToValueAtTime(s.leftFreq,  base + t);
+      leftOsc.frequency.linearRampToValueAtTime(s.leftFreq, base + t);
       rightOsc.frequency.linearRampToValueAtTime(s.rightFreq, base + t);
     }
   }
 
-  // Prime a couple of loops so we’re always ahead on the audio timeline
-  scheduleLoop(nextLoopIndex++);
-  scheduleLoop(nextLoopIndex++);
+  if (!shouldLoop || totalDurSec <= 0) {
+    // Play sequence once and hold the final values indefinitely
+    scheduleSequence(0);
+    event.target.onclick = () => stopAll(null);
+  } else {
+    // Handle Looping
+    let nextLoopIndex = 0;
+    scheduleSequence(nextLoopIndex++);
+    scheduleSequence(nextLoopIndex++);
 
-  const LOOKAHEAD_SEC = 0.5;
-  const scheduler = setInterval(() => {
-    // keep scheduling loops just ahead of the playhead
-    while (startTime + nextLoopIndex * loopDurSec < audioCtx.currentTime + LOOKAHEAD_SEC) {
-      scheduleLoop(nextLoopIndex++);
-    }
-  }, 100);
+    const LOOKAHEAD_SEC = 0.5;
+    const scheduler = setInterval(() => {
+      while (startTime + nextLoopIndex * totalDurSec < audioCtx.currentTime + LOOKAHEAD_SEC) {
+        scheduleSequence(nextLoopIndex++);
+      }
+    }, 100);
 
-  event.target.onclick = () => stopAll(scheduler);
+    event.target.onclick = () => stopAll(scheduler);
+  }
 
   leftOsc.start(startTime);
   rightOsc.start(startTime);
