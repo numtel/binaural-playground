@@ -151,6 +151,7 @@ let sequenceSchedulerId = null;
 let seqStartTime = 0;
 let seqDuration = 0;
 let progressAnimId = null;
+let currentSteps = [];
 
 function initAudio() {
   if (audioCtx) return;
@@ -171,20 +172,55 @@ function initAudio() {
 function updateProgress() {
   if (!isPlaying) return;
   const elapsed = audioCtx.currentTime - seqStartTime;
-  
+
   if (seqDuration > 0) {
     let percent = 0;
+    let t = elapsed;
+
     if (shouldLoop) {
-      percent = ((elapsed % seqDuration) / seqDuration) * 100;
+      t = elapsed % seqDuration;
+      percent = (t / seqDuration) * 100;
     } else {
       percent = (elapsed / seqDuration) * 100;
-      if (percent >= 100) {
-        percent = 100;
-      }
+      if (percent >= 100) percent = 100;
+      t = Math.min(elapsed, seqDuration);
     }
     document.getElementById('progress-bar').style.width = percent + '%';
+
+    // Calculate current frequencies based on linear interpolation
+    let leftFreq = currentSteps[0].leftFreq;
+    let rightFreq = currentSteps[0].rightFreq;
+    let tMs = t * 1000;
+    let baseTime = currentSteps[0].time;
+
+    for (let i = 0; i < currentSteps.length - 1; i++) {
+      let s1 = currentSteps[i];
+      let s2 = currentSteps[i+1];
+      let t1 = s1.time - baseTime;
+      let t2 = s2.time - baseTime;
+
+      if (tMs >= t1 && tMs <= t2) {
+        let ratio = (tMs - t1) / (t2 - t1 || 1);
+        leftFreq = s1.leftFreq + (s2.leftFreq - s1.leftFreq) * ratio;
+        rightFreq = s1.rightFreq + (s2.rightFreq - s1.rightFreq) * ratio;
+        break;
+      }
+    }
+
+    // Determine the brainwave state based on your guide
+    const diff = Math.abs(leftFreq - rightFreq);
+    let state = "Binaural"; // fallback label
+
+    if (diff >= 1 && diff < 4) state = "Delta";
+    else if (diff >= 4 && diff < 8) state = "Theta";
+    else if (diff >= 8 && diff < 14) state = "Alpha";
+    else if (diff >= 14 && diff < 30) state = "Beta";
+    else if (diff >= 30 && diff <= 100) state = "Gamma";
+
+    // Update the status text with the state and frequencies!
+    document.getElementById('status-text').textContent = `${state}, ${Math.round(leftFreq)}/${Math.round(rightFreq)}`;
   }
-  
+
   if (isPlaying) {
     progressAnimId = requestAnimationFrame(updateProgress);
   }
@@ -194,6 +230,7 @@ function stopAudio() {
   if (!isPlaying) return;
   isPlaying = false;
   
+  document.getElementById('btn-loop').disabled = false;
   document.getElementById('play-text').textContent = '▶︎ Play';
   document.getElementById('status-text').textContent = 'Stopped';
   document.getElementById('btn-play').classList.remove('pressed');
@@ -234,7 +271,7 @@ function togglePlay(event) {
   rightOsc.type = 'sine';
   rightOsc.connect(rightNode);
 
-  const steps = raw
+  currentSteps = raw
     .map(line => line.trim())
     .filter(Boolean)
     .map(line => {
@@ -243,7 +280,7 @@ function togglePlay(event) {
     })
     .sort((a,b) => a.time - b.time);
 
-  if (steps.length === 0) return;
+  if (currentSteps.length === 0) return;
 
   // Update URL hash
   location.hash = uint32ArrayToBase64(new Uint32Array(
@@ -253,22 +290,23 @@ function togglePlay(event) {
   ));
 
   isPlaying = true;
+  document.getElementById('btn-loop').disabled = true;
   document.getElementById('play-text').textContent = '◼ Stop';
   document.getElementById('status-text').textContent = 'Playing...';
   document.getElementById('btn-play').classList.add('pressed');
 
   const audioStartTime = audioCtx.currentTime + 0.05;
   seqStartTime = audioStartTime;
-  seqDuration = (steps[steps.length - 1].time - steps[0].time) / 1000;
+  seqDuration = (currentSteps[currentSteps.length - 1].time - currentSteps[0].time) / 1000;
 
   function scheduleSequence(loopIndex) {
     const base = audioStartTime + loopIndex * seqDuration;
-    leftOsc.frequency.setValueAtTime(steps[0].leftFreq, base);
-    rightOsc.frequency.setValueAtTime(steps[0].rightFreq, base);
+    leftOsc.frequency.setValueAtTime(currentSteps[0].leftFreq, base);
+    rightOsc.frequency.setValueAtTime(currentSteps[0].rightFreq, base);
 
-    for (let i = 1; i < steps.length; i++) {
-      const s = steps[i];
-      const t = (s.time - steps[0].time) / 1000;
+    for (let i = 1; i < currentSteps.length; i++) {
+      const s = currentSteps[i];
+      const t = (s.time - currentSteps[0].time) / 1000;
       leftOsc.frequency.linearRampToValueAtTime(s.leftFreq, base + t);
       rightOsc.frequency.linearRampToValueAtTime(s.rightFreq, base + t);
     }

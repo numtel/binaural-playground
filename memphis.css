@@ -129,12 +129,20 @@ button { color: var(--text); font-family: inherit; font-size: inherit;}
   /* Checkerboard overlay effect commonly seen in Win98 depressed buttons */
   background-image: repeating-linear-gradient(45deg, transparent, transparent 1px, rgba(0,0,0,0.05) 1px, rgba(0,0,0,0.05) 2px);
 }
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  /* If you want to ensure the "pressed"
+     look doesn't override the disabled look: */
+  box-shadow: none !important;
+  transform: none !important;
+}
 
 /* Workspace / Textarea */
 .workspace {
   flex: 1;
-  padding: 2px;
-  background: var(--bevel1dark); /* dark border behind the textarea */
+  padding: 1px;
   display: flex;
 }
 textarea.notepad-input {
