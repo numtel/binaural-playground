@@ -1,214 +1,12 @@
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#c0c0c0">
 <title>Binaural Playground</title>
-<style>
-  /* ---------- Theme tokens ---------- */
-  :root{
-    --bg: #0b0b10;
-    --card: #11121a;
-    --muted: #c8c9d1;
-    --text: #e9eaf1;
-    --accent: #6ea8fe;
-    --accent-2: #9d7bff;
-    --error: #ff6b6b;
-    --ring: color-mix(in oklab, var(--accent), white 25%);
-    --radius: 16px;
-    --shadow: 0 10px 30px rgba(0,0,0,.35);
-  }
-
-  @media (prefers-color-scheme: light){
-    :root{
-      --bg: #f6f7fb;
-      --card: #ffffff;
-      --muted: #3a3e49;
-      --text: #151824;
-      --accent: #2f6dff;
-      --accent-2: #7b49ff;
-      --ring: color-mix(in oklab, var(--accent), black 10%);
-      --shadow: 0 8px 24px rgba(0,0,0,.08);
-    }
-  }
-
-  /* ---------- Page layout ---------- */
-  *{box-sizing:border-box}
-  html,body{min-height:100%}
-  body{
-    margin:0;
-    font:400 16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
-    color:var(--text);
-    background:radial-gradient(1200px 800px at 10% -10%, color-mix(in oklab, var(--accent), transparent 92%), transparent),
-               radial-gradient(1000px 700px at 110% 10%, color-mix(in oklab, var(--accent-2), transparent 92%), transparent),
-               var(--bg);
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
-  }
-
-  .container{
-    max-width: 900px;
-    margin: clamp(16px, 3vw, 32px) auto;
-    padding: clamp(12px, 2.5vw, 20px);
-  }
-
-  .card{
-    background: var(--card);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: clamp(16px, 3vw, 28px);
-    border: 1px solid color-mix(in oklab, var(--text), transparent 90%);
-  }
-
-  header{
-    display:flex; align-items:center; justify-content:space-between;
-    gap: 12px; margin-bottom: 18px;
-  }
-  header h1{
-    margin:0; font-size: clamp(18px, 2.4vw, 26px);
-    letter-spacing:.2px;
-  }
-  header .sub{
-    color: var(--muted); font-size: .95rem;
-  }
-
-  /* ---------- Controls ---------- */
-  .controls{
-    display:grid; gap:14px;
-    grid-template-columns: 1fr;
-  }
-  @media (min-width: 720px){
-    .controls{
-      grid-template-columns: 1fr 260px;
-      align-items:start;
-    }
-  }
-
-  textarea{
-    width:100%;
-    min-height: 160px;
-    resize: vertical;
-    padding: 12px 14px;
-    border-radius: calc(var(--radius) - 4px);
-    border: 1px solid color-mix(in oklab, var(--text), transparent 86%);
-    background: transparent;
-    color: var(--text);
-    outline: none;
-    box-shadow: inset 0 0 0 1px transparent, 0 0 0 0 transparent;
-    transition: box-shadow .15s ease, border-color .15s ease, background .2s ease;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-    line-height:1.6;
-  }
-  textarea:focus{
-    border-color: var(--ring);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring), transparent 75%);
-  }
-
-  .side{
-    display:flex; flex-direction:column; gap:12px;
-    position:sticky; top:12px;
-  }
-
-  .row{display:flex; gap:10px; flex-wrap:wrap}
-
-  button, .btn{
-    -webkit-tap-highlight-color: transparent;
-    appearance:none; border:0; cursor:pointer;
-    padding: 12px 16px;
-    border-radius: calc(var(--radius) - 6px);
-    font-weight:600;
-    letter-spacing:.2px;
-    background: linear-gradient(180deg, var(--accent), color-mix(in oklab, var(--accent), black 8%));
-    color:white;
-    box-shadow: 0 6px 16px color-mix(in oklab, var(--accent), black 70%);
-    transition: transform .06s ease, filter .2s ease, box-shadow .2s ease, background .2s ease;
-  }
-  button:hover{ filter: brightness(1.04) }
-  button:active{ transform: translateY(1px) }
-  button:focus-visible{
-    outline: none;
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring), transparent 70%),
-                0 6px 16px color-mix(in oklab, var(--accent), black 70%);
-  }
-
-  .btn-secondary{
-    background: linear-gradient(180deg, color-mix(in oklab, var(--card), white 6%), color-mix(in oklab, var(--card), black 4%));
-    color: var(--text);
-    border: 1px solid color-mix(in oklab, var(--text), transparent 86%);
-    box-shadow:none;
-  }
-  .btn-danger{
-    background: linear-gradient(180deg, var(--error), color-mix(in oklab, var(--error), black 10%));
-    box-shadow: 0 6px 16px color-mix(in oklab, var(--error), black 70%);
-  }
-
-  label{
-    display:block; font-weight:600; margin-bottom:6px; letter-spacing:.2px;
-  }
-  .hint{ color: var(--muted); font-size:.92rem }
-
-  input[type="range"],
-  input[type="number"],
-  select{
-    width:100%;
-    padding: 10px 12px;
-    border-radius: calc(var(--radius) - 6px);
-    border: 1px solid color-mix(in oklab, var(--text), transparent 86%);
-    background: transparent;
-    color: var(--text);
-    outline:none;
-    transition: box-shadow .15s ease, border-color .15s ease;
-  }
-  input[type="number"]:focus,
-  select:focus{
-    border-color: var(--ring);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ring), transparent 75%);
-  }
-
-  /* Toggle Styling */
-  .toggle-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    user-select: none;
-    cursor: pointer;
-  }
-  .toggle-container input {
-    width: auto;
-    cursor: pointer;
-  }
-  .toggle-container label {
-    margin-bottom: 0;
-    cursor: pointer;
-  }
-
-  /* ---------- Footer ---------- */
-  .footer{
-    display:flex; justify-content:space-between; align-items:center; gap:10px;
-    margin-top: 14px; color: var(--muted); font-size:.95rem;
-  }
-  .footer a{ color: var(--accent); text-decoration: none }
-  .footer a:hover{ text-decoration: underline }
-
-  /* ---------- Mobile niceties ---------- */
-  @media (max-width: 719px){
-    .footer{ flex-direction:column; align-items:flex-start }
-    button, .btn{ width:100% }
-    .side{ position:static }
-  }
-
-  /* ---------- Safe-area for notches ---------- */
-  .container{ padding-left: max(8px, env(safe-area-inset-left)); padding-right:max(8px, env(safe-area-inset-right)) }
-  body{ padding-bottom: env(safe-area-inset-bottom) }
-
-  /* ---------- Reduced motion ---------- */
-  @media (prefers-reduced-motion: reduce){
-    *{ transition:none !important; animation:none !important }
-  }
-
-  summary { cursor: pointer; }
-</style>
+<link rel="stylesheet" href="./memphis.css">
 <script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -218,93 +16,221 @@ if ("serviceWorker" in navigator) {
 </script>
 </head>
 <body>
-  <div class="container">
-    <div class="card">
-      <header>
-        <h1>Binaural Playground</h1>
-        <div class="sub">For your exploration</div>
-      </header>
-
-      <div class="controls">
-        <textarea placeholder="0,40,48
-5000,240,248">0,40,48
-5000,240,248</textarea>
-
-        <div class="side">
-          <button onclick="play(event)">Play</button>
-          <div class="toggle-container">
-            <input type="checkbox" id="loop-toggle" checked>
-            <label for="loop-toggle">Loop sequence</label>
-          </div>
-          <div class="row">
-            <button class="btn-secondary" onclick="navigator.clipboard && navigator.clipboard.writeText(location.href)">Copy URL</button>
-          </div>
-          <div class="hint">Headphones recommended. Ensure left/right channels are correct.</div>
-        </div>
+  
+  <div class="menubar">
+    <div class="menu-container">
+      <button onclick="toggleMenu('file-menu', event)" onmouseenter="menuHover('file-menu')">File</button>
+      <div class="menu" id="file-menu">
+        <button onclick="copyUrl()">Copy URL to Clipboard</button>
       </div>
-
-      <details style="margin-top:16px">
-        <summary>Help</summary>
-        <ul>
-          <li>Type sequence of steps in the box.</li>
-          <p>Each line contains 3 whole numbers separated by commas:</p>
-          <ul>
-            <li>timestamp (in milliseconds)</li>
-            <li>left channel frequency (hertz)</li>
-            <li>right channel frequency (hertz)</li>
-          </ul>
-          <li>Frequencies shift linearly between steps</li>
-          <li>Sequence will repeat until clicking stop</li>
-          <li>Share sequences by copying the URL</li>
-          <li>When 'Play' is clicked, the page URL is updated with the encoded sequence appended. Bookmark or share these URLs to save the sounds.</li>
-          <li>Wear headphones and make sure that they're on with correct left/right</li>
-        </ul>
-      </details>
-
-      <details style="margin-top:8px">
-        <summary>Binaural frequency guide</summary>
-        <p>The difference between left and right channel frequency is the binaural frequency experienced, e.g. 100 Hz left, 103 Hz right = 3 Hz binaural</p>
-        <ul>
-          <li>1-4 Hz: Delta (Deep sleep)</li>
-          <li>4-8 Hz: Theta (Meditation/REM)</li>
-          <li>8-14 Hz: Alpha (Relaxation)</li>
-          <li>14-30 Hz: Beta (Focus/Energy)</li>
-          <li>30-100 Hz: Gamma (Maximum Awareness)</li>
-        </ul>
-        <p>Experiment with which side has the higher frequency</p>
-      </details>
-
-      <div class="footer">
-        <span>Inspired by Hemi-Sync</span>
-        <a href="https://github.com/numtel/binaural-playground" target="_blank" rel="noopener">View on Github</a>
+    </div>
+    <div class="menu-container">
+      <button onclick="toggleMenu('help-menu', event)" onmouseenter="menuHover('help-menu')">Help</button>
+      <div class="menu" id="help-menu">
+        <button onclick="document.getElementById('help-dialog').showModal()">Help Topics...</button>
+        <button onclick="document.getElementById('presets-dialog').showModal()">View Presets...</button>
+        <div class="hr"></div>
+        <button onclick="window.open('https://github.com/numtel/binaural-playground/')">View Github page...</button>
       </div>
     </div>
   </div>
+
+  <div class="toolbar">
+    <button id="btn-play" class="button" onclick="togglePlay(event)" style="width: 60px; justify-content: center;">
+      <span id="play-text">▶︎ Play</span>
+    </button>
+    <div class="vr"></div>
+    <button id="btn-loop" class="button pressed" onclick="toggleLoop(event)">
+      ⟳ Loop Sequence
+    </button>
+    <div class="vr"></div>
+    <button class="button" onclick="copyUrl()">⿻ Copy URL</button>
+  </div>
+
+  <div class="workspace">
+    <textarea id="sequence-input" class="notepad-input" spellcheck="false">0,40,48
+5000,240,248</textarea>
+  </div>
+
+  <div class="status-bar">
+    <div class="pane" id="status-text" style="width: 120px;">Ready</div>
+    <div class="progress-container">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+  </div>
+
+  <dialog id="help-dialog">
+    <h2>Help Topics<button class="close" onclick="this.closest('dialog').close()">X</button></h2>
+    <div class="content">
+      <fieldset>
+        <legend>Sequence Format</legend>
+        <p>You must wear headphones!</p>
+        <p>Type the sequence of steps in the text area.</p>
+        <p>Each line must contain exactly 3 numbers separated by commas:</p>
+        <ul>
+          <li>Timestamp (in milliseconds)</li>
+          <li>Left channel frequency (Hz)</li>
+          <li>Right channel frequency (Hz)</li>
+        </ul>
+        <p>Frequencies shift linearly between steps.</p>
+        <p>Frequencies may include decimals.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Binaural Frequency Guide</legend>
+        <p>The experienced binaural beat is the difference between channels.</p>
+        <ul>
+          <li><strong>1-4 Hz:</strong> Delta (Deep sleep)</li>
+          <li><strong>4-8 Hz:</strong> Theta (Meditation/REM)</li>
+          <li><strong>8-14 Hz:</strong> Alpha (Relaxation)</li>
+          <li><strong>14-30 Hz:</strong> Beta (Focus/Energy)</li>
+          <li><strong>30-100 Hz:</strong> Gamma (Maximum Awareness)</li>
+        </ul>
+      </fieldset>
+      <div style="text-align: right; margin-top: 10px;">
+        <button class="button" onclick="this.closest('dialog').close()">OK</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="presets-dialog">
+    <h2>Presets<button class="close" onclick="this.closest('dialog').close()">X</button></h2>
+    <div class="content">
+      <p>Replace your current sequence with a preset:</p>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button class="button" onclick="loadPreset('meditation')">Deep Meditation (Theta Ramp)</button>
+        <button class="button" onclick="loadPreset('caffeine')">Digital Caffeine (Beta Focus)</button>
+        <button class="button" onclick="loadPreset('hemisync')">The "Hemi-Sync" Slide (Delta)</button>
+        <button class="button" onclick="loadPreset('gamma')">Gamma Peak (High Awareness)</button>
+        <button class="button" onclick="loadPreset('senspecial')">Sen Special (static 40/48)</button>
+        <button class="button" onclick="loadPreset('sentobed')">Sen to bed (slide from 40/48 to 40/42 over 2 minutes)</button>
+      </div>
+      <div style="text-align: right; margin-top: 15px;">
+        <button class="button" onclick="this.closest('dialog').close()">Close</button>
+      </div>
+    </div>
+  </dialog>
+
 <script>
-function play(event) {
-  const textareaElement = document.querySelector('textarea');
-  const raw = textareaElement.value.split('\n');
-  const shouldLoop = document.getElementById('loop-toggle').checked;
+// UI Interactions
+function toggleMenu(id, event) {
+  event.stopPropagation();
+  const menu = document.getElementById(id);
+  const wasOpen = menu.hasAttribute('open');
 
-  localStorage.setItem('binaural_playground_sequence', textareaElement.value);
+  // Close all menus
+  document.querySelectorAll('.menu').forEach(m => m.removeAttribute('open'));
 
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const gainNode = audioCtx.createGain();
+  // Toggle the current one (if it wasn't open already)
+  if (!wasOpen) {
+    menu.setAttribute('open', '');
+  }
+}
+
+function menuHover(id) {
+  // Check if any menu is currently active/open in the DOM
+  const isAnyMenuOpen = document.querySelector('.menu[open]');
+
+  if (isAnyMenuOpen) {
+    // If one is open, close them all and instantly open the hovered one
+    document.querySelectorAll('.menu').forEach(m => m.removeAttribute('open'));
+    document.getElementById(id).setAttribute('open', '');
+  }
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.menu').forEach(m => m.removeAttribute('open'));
+});
+
+// Audio Engine Variables
+let audioCtx, gainNode, leftNode, rightNode, leftOsc, rightOsc;
+let isPlaying = false;
+let shouldLoop = true;
+let sequenceSchedulerId = null;
+
+// Progress Tracking
+let seqStartTime = 0;
+let seqDuration = 0;
+let progressAnimId = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  gainNode = audioCtx.createGain();
   gainNode.connect(audioCtx.destination);
 
-  const leftNode = audioCtx.createStereoPanner();
-  leftNode.pan.setValueAtTime(-1, audioCtx.currentTime);
+  leftNode = audioCtx.createStereoPanner();
+  leftNode.pan.value = -1;
   leftNode.connect(gainNode);
 
-  const rightNode = audioCtx.createStereoPanner();
-  rightNode.pan.setValueAtTime(1, audioCtx.currentTime);
+  rightNode = audioCtx.createStereoPanner();
+  rightNode.pan.value = 1;
   rightNode.connect(gainNode);
+}
 
-  const leftOsc = audioCtx.createOscillator();
+function updateProgress() {
+  if (!isPlaying) return;
+  const elapsed = audioCtx.currentTime - seqStartTime;
+  
+  if (seqDuration > 0) {
+    let percent = 0;
+    if (shouldLoop) {
+      percent = ((elapsed % seqDuration) / seqDuration) * 100;
+    } else {
+      percent = (elapsed / seqDuration) * 100;
+      if (percent >= 100) {
+        percent = 100;
+      }
+    }
+    document.getElementById('progress-bar').style.width = percent + '%';
+  }
+  
+  if (isPlaying) {
+    progressAnimId = requestAnimationFrame(updateProgress);
+  }
+}
+
+function stopAudio() {
+  if (!isPlaying) return;
+  isPlaying = false;
+  
+  document.getElementById('play-text').textContent = '▶︎ Play';
+  document.getElementById('status-text').textContent = 'Stopped';
+  document.getElementById('btn-play').classList.remove('pressed');
+  
+  if (sequenceSchedulerId) clearInterval(sequenceSchedulerId);
+  if (progressAnimId) cancelAnimationFrame(progressAnimId);
+  
+  // Smooth fade out
+  gainNode.gain.linearRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
+  leftOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
+  rightOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
+  
+  setTimeout(() => {
+    try { leftOsc.stop(); rightOsc.stop(); } catch(e) {}
+    document.getElementById('progress-bar').style.width = '0%';
+  }, 200);
+}
+
+function togglePlay(event) {
+  if (isPlaying) {
+    stopAudio();
+    return;
+  }
+  
+  const textareaElement = document.getElementById('sequence-input');
+  const raw = textareaElement.value.split('\n');
+  localStorage.setItem('binaural_playground_sequence', textareaElement.value);
+
+  initAudio();
+  gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+  gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+
+  leftOsc = audioCtx.createOscillator();
   leftOsc.type = 'sine';
   leftOsc.connect(leftNode);
 
-  const rightOsc = audioCtx.createOscillator();
+  rightOsc = audioCtx.createOscillator();
   rightOsc.type = 'sine';
   rightOsc.connect(rightNode);
 
@@ -319,35 +245,24 @@ function play(event) {
 
   if (steps.length === 0) return;
 
+  // Update URL hash
   location.hash = uint32ArrayToBase64(new Uint32Array(
     raw.filter(x => x.trim() !== '')
        .map(line => line.split(',').map(x => parseInt(x, 10)))
        .reduce((out, cur) => out.concat(cur), [])
   ));
 
-  const startTime = audioCtx.currentTime + 0.05;
-  const totalDurSec = (steps[steps.length - 1].time - steps[0].time) / 1000;
+  isPlaying = true;
+  document.getElementById('play-text').textContent = '◼ Stop';
+  document.getElementById('status-text').textContent = 'Playing...';
+  document.getElementById('btn-play').classList.add('pressed');
 
-  event.target.textContent = 'Stop';
-  const origHandler = event.target.onclick;
-
-  function stopAll(schedulerId = null) {
-    gainNode.gain.linearRampToValueAtTime(0.00000001, audioCtx.currentTime + 0.1);
-    leftOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
-    rightOsc.frequency.cancelScheduledValues(audioCtx.currentTime);
-    if (schedulerId) clearInterval(schedulerId);
-    setTimeout(() => {
-      try { leftOsc.stop(); rightOsc.stop(); } catch(e) {}
-    }, 200);
-
-    event.target.textContent = 'Play';
-    event.target.onclick = origHandler;
-  }
+  const audioStartTime = audioCtx.currentTime + 0.05;
+  seqStartTime = audioStartTime;
+  seqDuration = (steps[steps.length - 1].time - steps[0].time) / 1000;
 
   function scheduleSequence(loopIndex) {
-    const base = startTime + loopIndex * totalDurSec;
-
-    // Set initial frequencies immediately at the start of the sequence
+    const base = audioStartTime + loopIndex * seqDuration;
     leftOsc.frequency.setValueAtTime(steps[0].leftFreq, base);
     rightOsc.frequency.setValueAtTime(steps[0].rightFreq, base);
 
@@ -359,34 +274,66 @@ function play(event) {
     }
   }
 
-  if (!shouldLoop || totalDurSec <= 0) {
-    // Play sequence once and hold the final values indefinitely
+  if (!shouldLoop || seqDuration <= 0) {
     scheduleSequence(0);
-    event.target.onclick = () => stopAll(null);
   } else {
-    // Handle Looping
     let nextLoopIndex = 0;
     scheduleSequence(nextLoopIndex++);
     scheduleSequence(nextLoopIndex++);
 
     const LOOKAHEAD_SEC = 0.5;
-    const scheduler = setInterval(() => {
-      while (startTime + nextLoopIndex * totalDurSec < audioCtx.currentTime + LOOKAHEAD_SEC) {
+    sequenceSchedulerId = setInterval(() => {
+      while (audioStartTime + nextLoopIndex * seqDuration < audioCtx.currentTime + LOOKAHEAD_SEC) {
         scheduleSequence(nextLoopIndex++);
       }
     }, 100);
-
-    event.target.onclick = () => stopAll(scheduler);
   }
 
-  leftOsc.start(startTime);
-  rightOsc.start(startTime);
+  leftOsc.start(audioStartTime);
+  rightOsc.start(audioStartTime);
+  
+  // Start Progress Bar
+  progressAnimId = requestAnimationFrame(updateProgress);
 }
 
-function uint32ArrayToBase64(u32) {
-  return uint8ArrayToBase64(new Uint8Array(u32.buffer));
+function toggleLoop() {
+  const btn = document.getElementById('btn-loop');
+  shouldLoop = !shouldLoop;
+  if (shouldLoop) {
+    btn.classList.add('pressed');
+  } else {
+    btn.classList.remove('pressed');
+  }
 }
 
+function copyUrl() {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(location.href);
+    document.getElementById('status-text').textContent = 'URL Copied';
+    setTimeout(() => {
+      if(!isPlaying) document.getElementById('status-text').textContent = 'Ready';
+      else document.getElementById('status-text').textContent = 'Playing...';
+    }, 2000);
+  }
+}
+
+// Preset Loader
+const PRESETS = {
+  meditation: "0,200,210\n30000,200,207\n60000,200,204",
+  caffeine: "0,150,165\n10000,150,165",
+  hemisync: "0,100,110\n120000,100,102",
+  gamma: "0,400,440\n5000,400,440",
+  senspecial: "0,40,48",
+  sentobed: "0,40,48\n120000,40,42",
+};
+
+function loadPreset(key) {
+  document.getElementById('sequence-input').value = PRESETS[key];
+  document.getElementById('presets-dialog').close();
+}
+
+// Base64 Encoders
+function uint32ArrayToBase64(u32) { return uint8ArrayToBase64(new Uint8Array(u32.buffer)); }
 function base64ToUint32Array(b64) {
   const in8 = base64ToUint8Array(b64);
   const buffer = new ArrayBuffer(in8.length);
@@ -394,33 +341,28 @@ function base64ToUint32Array(b64) {
   for(let i = 0; i<in8.length; i++) out8[i] = in8[i];
   return new Uint32Array(buffer);
 }
-
-function uint8ArrayToBase64(u8) {
-  return btoa(String.fromCharCode.apply(null, u8));
-}
-
-function base64ToUint8Array(str) {
-  return atob(str).split('').map(function (c) { return c.charCodeAt(0); });
-}
+function uint8ArrayToBase64(u8) { return btoa(String.fromCharCode.apply(null, u8)); }
+function base64ToUint8Array(str) { return atob(str).split('').map(function (c) { return c.charCodeAt(0); }); }
 
 function readHash() {
   if(location.hash) {
     const sequence = base64ToUint32Array(location.hash.slice(1));
     let out = '';
     for(let i = 0; i<sequence.length; i+=3) out += sequence.slice(i,i+3).join(',') + '\n';
-    document.querySelector('textarea').value = out;
+    document.getElementById('sequence-input').value = out.trim();
   }
 }
 
 window.onhashchange = readHash;
-// ---- PERSISTENCE: Check conditions on page load ----
+
 if (location.hash) {
   readHash();
 } else {
   const savedSequence = localStorage.getItem('binaural_playground_sequence');
   if (savedSequence) {
-    document.querySelector('textarea').value = savedSequence;
+    document.getElementById('sequence-input').value = savedSequence;
   }
 }
-
 </script>
+</body>
+</html>

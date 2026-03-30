@@ -1,0 +1,184 @@
+/* Windows 98: Codename Memphis */
+
+:root {
+  --face: #ddd;
+  --text: #111;
+  --hover: #eee;
+  --highlight: #fff;
+  --etch: #fff;
+  --bevel1light: #fff;
+  --bevel1dark: #777;
+  --bevel2light: #e7e7e7;
+  --bevel2dark: #bbb;
+  --title1: #000080; /* Classic Win98 Blue */
+  --title2: #1084d0;
+  --titleText: #fff;
+  --activeBg: #000080;
+  --activeBg2: #0000a0;
+  --activeText: #fff;
+  --textLight: #444;
+  --toolbar: #918;
+  --toolbarDisabled: #b5b5b5;
+  --toolbarAccent1: #888;
+  --toolbarAccent2: #bbb;
+  --thEtch: #fff;
+  --link: #009;
+  --linkHover: #03f;
+  --banner: #2bc;
+  --shadow: #0005;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --face: #222;
+    --text: #f5f5f5;
+    --hover: #111;
+    --highlight: #111;
+    --etch: #555;
+    --bevel1light: #555;
+    --bevel1dark: #0c0c0c;
+    --bevel2light: #373737;
+    --bevel2dark: #1c1c1c;
+    --title1: #000080;
+    --title2: #1084d0;
+    --titleText: #f5f5f5;
+    --activeBg: #3aa;
+    --activeBg2: #177;
+    --activeText: #111;
+    --textLight: #777;
+    --toolbar: #395;
+    --toolbarDisabled: #484848;
+    --toolbarAccent1: #444;
+    --toolbarAccent2: #000;
+    --thEtch: #333;
+    --link: #ff6;
+    --linkHover: #fc0;
+    --banner: #033;
+    --shadow: #fff1;
+  }
+}
+
+/* Base Full-Screen App Layout */
+body { 
+  background: var(--face); 
+  color: var(--text); 
+  user-select:none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Fallback for older browsers */
+  height: 100dvh; /* Dynamically accounts for bottom address bars */
+  overflow: hidden;
+  font-family: "MS Sans Serif", "Segoe UI", sans-serif;
+  font-size: 12px;
+}
+
+/* Dialogs */
+dialog {padding:0;z-index:100;width:100%; max-width:500px; min-width:320px; user-select:none; background: var(--face); color: var(--text); border-radius: 0px; box-shadow: 2px 2px 0px rgba(0,0,0,0.5); border: 1px solid; border-color: var(--bevel1light) var(--bevel1dark) var(--bevel1dark) var(--bevel1light);}
+dialog::backdrop { background: rgba(0,0,0,0.3); }
+dialog:not(.menu) {top:50%; transform:translate(0, -50%);  max-height:90vh; overflow-y:auto;}
+dialog>.content { padding: 15px; height: auto; border: 1px solid; border-color:  var(--bevel2light) var(--bevel2dark) var(--bevel2dark) var(--bevel2light); }
+dialog h2 { position:sticky; top: 0; z-index:10; padding: 4px 6px; font-size: 13px; font-weight: bold; background: linear-gradient(90deg, var(--title1) 0%, var(--title2) 100%); color: var(--titleText); margin: 2px 2px 0px 2px;}
+dialog h2>.close {position:absolute; z-index: 11; top:2px; right:2px; padding: 0 4px; background: var(--face); border: 1px solid; border-color: var(--bevel1light) var(--bevel1dark) var(--bevel1dark) var(--bevel1light); color: var(--text); font-weight: bold; cursor:pointer;}
+dialog h2>.close:active { border-color: var(--bevel1dark) var(--bevel1light) var(--bevel1light) var(--bevel1dark); padding: 1px 3px -1px 5px; }
+
+fieldset { position:relative; border: 2px solid;border-color: var(--bevel2dark) var(--bevel2light) var(--bevel2light) var(--bevel2dark); padding: 10px; margin-bottom: 15px; }
+legend { padding: 0 4px; background:var(--face); margin-left: 8px;}
+fieldset p { margin:5px 0; }
+
+button { color: var(--text); font-family: inherit; font-size: inherit;}
+.button { padding: 4px 10px; background:var(--face); border: 1px solid; border-color: var(--bevel1light) var(--bevel1dark) var(--bevel1dark) var(--bevel1light); margin: 0; cursor: pointer;}
+.button:active { border-color:var(--bevel1dark) var(--bevel1light) var(--bevel1light) var(--bevel1dark); padding: 5px 9px 3px 11px; }
+
+/* Toolbars & Menus */
+.menubar {background:var(--face); padding:2px; display: flex; border-bottom: 1px solid var(--bevel1dark);}
+.menubar button { background:none; border:0; padding: 4px 8px; font-family: inherit; font-size: inherit; cursor:pointer;}
+.menubar button:hover { background: var(--activeBg); color: var(--activeText); }
+.menu-container { position:relative;}
+
+.menubar .menu {
+  position: absolute; top: 100%; left: 0; margin: 0;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+  display: none; 
+  background: var(--face);
+  border: 1px solid; border-color: var(--bevel1light) var(--bevel1dark) var(--bevel1dark) var(--bevel1light);
+  padding: 10px 2px; min-width: 150px; z-index: 999;
+}
+.menubar .menu[open] { display: block; }
+.menubar .menu button {display:block; text-align:left; padding:4px 15px; width:100%; text-wrap:nowrap; color: var(--text); }
+.menubar .menu button:hover {background: var(--activeBg); color:var(--activeText);}
+.hr { border: 1px inset var(--etch); margin:15px 0;  clear:both;}
+
+.toolbar {
+  background: var(--face); display:flex; flex-direction:row; align-items: center;
+  border-bottom:1px solid var(--toolbarAccent1); 
+  box-shadow:inset 0 -1px 2px var(--toolbarAccent2), inset 0 1px 2px var(--highlight);
+  padding: 4px;
+}
+.toolbar .vr {border-left: 1px solid var(--bevel1dark); border-right: 1px solid var(--bevel1light); height: 22px; margin: 0 6px;}
+.toolbar>button {
+  padding: 4px 8px; background: var(--face); border: 1px solid transparent; 
+  margin:0 2px; cursor: pointer; display:flex; align-items:center; font-family: inherit;
+}
+.toolbar>button:hover { border-color: var(--bevel1light) var(--bevel1dark) var(--bevel1dark) var(--bevel1light); }
+.toolbar>button:active { border-color: var(--bevel1dark) var(--bevel1light) var(--bevel1light) var(--bevel1dark); padding: 5px 7px 3px 9px;}
+/* Active Toggle State */
+.toolbar>button.pressed {
+  border-color: var(--bevel1dark) var(--bevel1light) var(--bevel1light) var(--bevel1dark);
+  background: var(--bevel2light);
+  /* Checkerboard overlay effect commonly seen in Win98 depressed buttons */
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 1px, rgba(0,0,0,0.05) 1px, rgba(0,0,0,0.05) 2px);
+}
+
+/* Workspace / Textarea */
+.workspace {
+  flex: 1;
+  padding: 2px;
+  background: var(--bevel1dark); /* dark border behind the textarea */
+  display: flex;
+}
+textarea.notepad-input {
+  flex: 1;
+  resize: none;
+  border: 2px inset var(--highlight);
+  background: var(--highlight);
+  color: #000; /* Windows text is black even in some dark schemes, or var(--text) */
+  padding: 4px;
+  outline: none;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  white-space: pre;
+}
+@media (prefers-color-scheme: dark) {
+  textarea.notepad-input { background: var(--face); color: var(--text); }
+}
+
+/* Status Bar & Progress */
+.status-bar {
+  display:flex; color:var(--text); flex-direction:row; align-items: center;
+  background:var(--face);
+  border-top:1px solid var(--highlight); 
+  box-shadow: 0 -1px 0 var(--bevel1dark);
+  padding: 2px 4px; 
+}
+.status-bar>.pane { 
+  padding: 2px 6px; 
+  border: 1px inset var(--highlight); 
+  display: flex; align-items: center;
+  height: 20px;
+  margin-right: 2px;
+}
+
+.progress-container {
+  flex: 1;
+  border: 1px inset var(--highlight);
+  background: var(--face);
+  height: 16px;
+  margin-left: 4px;
+  position: relative;
+}
+.progress-bar {
+  background: var(--title1);
+  height: 100%;
+  width: 0%;
+}
