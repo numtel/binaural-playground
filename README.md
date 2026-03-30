@@ -87,4 +87,4 @@ Then open `http://localhost:8000` in your web browser.
 
 ## 📜 License
 
-This project is licensed under the MIT License. See the `LICENSE` file for full details.
+This project is licensed under the GPL v3 License. See the `LICENSE` file for full details.
