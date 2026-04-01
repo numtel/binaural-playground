@@ -68,7 +68,7 @@ if ("serviceWorker" in navigator) {
         <p>Type the sequence of steps in the text area.</p>
         <p>Each line must contain exactly 3 numbers separated by commas:</p>
         <ul>
-          <li>Timestamp (in milliseconds)</li>
+          <li>Timestamp (in milliseconds,<br>or using units like '1h 2m 30s' or '35s')</li>
           <li>Left channel frequency (Hz)</li>
           <li>Right channel frequency (Hz)</li>
         </ul>
@@ -101,6 +101,7 @@ if ("serviceWorker" in navigator) {
         <button class="button" onclick="loadPreset('caffeine')">Digital Caffeine (Beta Focus)</button>
         <button class="button" onclick="loadPreset('hemisync')">The "Hemi-Sync" Slide (Delta)</button>
         <button class="button" onclick="loadPreset('gamma')">Gamma Peak (High Awareness)</button>
+        <button class="button" onclick="loadPreset('dreaming')">Maximum Dreaming (Deep Theta REM)</button>
         <button class="button" onclick="loadPreset('senspecial')">Sen Special (static 40/48)</button>
         <button class="button" onclick="loadPreset('sentobed')">Sen to bed (slide from 40/48 to 40/42 over 2 minutes)</button>
       </div>
@@ -135,6 +136,27 @@ function menuHover(id) {
     document.querySelectorAll('.menu').forEach(m => m.removeAttribute('open'));
     document.getElementById(id).setAttribute('open', '');
   }
+}
+
+// Time Parser for ms or '1h 2m 30s' formats
+function parseTime(timeStr) {
+  timeStr = timeStr.trim();
+  if (!isNaN(timeStr)) return parseFloat(timeStr);
+
+  let ms = 0;
+  const regex = /(\d+(?:\.\d+)?)\s*(h|m|s)/ig;
+  let match;
+  let found = false;
+
+  while ((match = regex.exec(timeStr)) !== null) {
+    found = true;
+    const val = parseFloat(match[1]);
+    const unit = match[2].toLowerCase();
+    if (unit === 'h') ms += val * 3600000;
+    else if (unit === 'm') ms += val * 60000;
+    else if (unit === 's') ms += val * 1000;
+  }
+  return found ? ms : parseFloat(timeStr);
 }
 
 document.addEventListener('click', () => {
@@ -275,7 +297,10 @@ function togglePlay(event) {
     .map(line => line.trim())
     .filter(Boolean)
     .map(line => {
-      const [time, leftFreq, rightFreq] = line.split(',').map(Number);
+      const parts = line.split(',');
+      const time = parseTime(parts[0]);
+      const leftFreq = Number(parts[1]);
+      const rightFreq = Number(parts[2]);
       return { time, leftFreq, rightFreq };
     })
     .sort((a,b) => a.time - b.time);
@@ -285,7 +310,10 @@ function togglePlay(event) {
   // Update URL hash
   location.hash = uint32ArrayToBase64(new Uint32Array(
     raw.filter(x => x.trim() !== '')
-       .map(line => line.split(',').map(x => parseInt(x, 10)))
+       .map(line => {
+         const parts = line.split(',');
+         return [parseTime(parts[0]), parseInt(parts[1], 10), parseInt(parts[2], 10)];
+       })
        .reduce((out, cur) => out.concat(cur), [])
   ));
 
@@ -361,6 +389,7 @@ const PRESETS = {
   caffeine: "0,150,165\n10000,150,165",
   hemisync: "0,100,110\n120000,100,102",
   gamma: "0,400,440\n5000,400,440",
+  dreaming: "0s, 150, 156\n1h, 150, 156",
   senspecial: "0,40,48",
   sentobed: "0,40,48\n120000,40,42",
 };
